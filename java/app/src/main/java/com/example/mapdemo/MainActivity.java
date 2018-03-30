@@ -77,6 +77,7 @@ public final class MainActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
         startActivity(new Intent(this, MyLocationDemoActivity.class));
+        //startActivity(new Intent(this, MarkerDemoActivity.class));
         //ListView list = (ListView) findViewById(R.id.list);
 
         //ListAdapter adapter = new CustomArrayAdapter(this, DemoDetailsList.DEMOS);

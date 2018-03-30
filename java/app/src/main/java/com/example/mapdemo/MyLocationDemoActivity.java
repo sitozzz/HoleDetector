@@ -16,12 +16,16 @@
 
 package com.example.mapdemo;
 
+import com.google.android.gms.maps.CameraUpdate;
+import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.GoogleMap.OnMyLocationButtonClickListener;
 import com.google.android.gms.maps.GoogleMap.OnMyLocationClickListener;
 import com.google.android.gms.maps.LocationSource;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.MarkerOptions;
 
 import android.Manifest;
 import android.content.Context;
@@ -122,6 +126,10 @@ public class MyLocationDemoActivity extends AppCompatActivity
     public void onBackPressed() {
         //super.onBackPressed();
         if(locationbuffer != null && last_speed != 0){
+
+            LatLng pos = new LatLng(locationbuffer.getLatitude(), locationbuffer.getLongitude());
+            mMap.addMarker(new MarkerOptions().position(pos).title("Яма"));
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(pos));
             writeToFile(locationbuffer, last_speed, "Man");
             Toast.makeText(this, "Яма записана пользователем", Toast.LENGTH_SHORT).show();
             Log.d("loc", "Write buffer to file");
@@ -211,6 +219,8 @@ public class MyLocationDemoActivity extends AppCompatActivity
         mMap.setOnMyLocationButtonClickListener(this);
         mMap.setOnMyLocationClickListener(this);
         enableMyLocation();
+
+
     }
 
     /**
@@ -303,6 +313,16 @@ public class MyLocationDemoActivity extends AppCompatActivity
             if ((currentTime - lastUpdate) > 100){
                 long difftime = (currentTime - lastUpdate);
                 lastUpdate = currentTime;
+                if (x == 0){
+                    Log.d("acceldbg", "x = 0");
+                }
+                if (y == 0){
+                    Log.d("acceldbg", "y = 0");
+                }
+                if (z == 0){
+                    Log.d("acceldbg", "z = 0");
+                }
+
 
                 float speed = Math.abs(y - last_y)/ difftime * 10000;
                 if (speed > SHAKE_THRESHOLD) {
@@ -315,9 +335,9 @@ public class MyLocationDemoActivity extends AppCompatActivity
                 last_x = x;
                 last_y = y;
                 last_z = z;
-                //Log.d("acceldbg", "accelerometr x = "+String.valueOf(x));
-                //Log.d("acceldbg", "accelerometr y = "+String.valueOf(y));
-                //Log.d("acceldbg", "accelerometr z = "+String.valueOf(z));
+                Log.d("acceldbg", "accelerometr x = "+String.valueOf(x));
+                Log.d("acceldbg", "accelerometr y = "+String.valueOf(y));
+                Log.d("acceldbg", "accelerometr z = "+String.valueOf(z));
             }
         }
 
