@@ -52,7 +52,9 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Vector;
 
 /**
  * This demo shows how GMS Location can be used to check for changes to the users location.  The
@@ -83,7 +85,15 @@ public class MyLocationDemoActivity extends AppCompatActivity
     private static final int SHAKE_THRESHOLD = 600;
     private SensorManager senSensorManager;
     private Sensor senAccelerometer;
-
+    //Вычисление медианы
+    public float[] XArray;
+    public float[] YArray;
+    public float[] ZArray;
+    //Вычисленные значения вектора гравитации
+    public float medX;
+    public float medY;
+    public float medZ;
+    public int count;
     public MyLocation.LocationResult locationResult = new MyLocation.LocationResult(){
         @Override
         public void gotLocation(Location location){
@@ -107,6 +117,15 @@ public class MyLocationDemoActivity extends AppCompatActivity
         MyLocation myLocation = new MyLocation(getApplicationContext());
         myLocation.getLocation(this, locationResult);
         //writeToFile();
+        //Количество измерений за 5 секунд
+        XArray = new float[50];
+        YArray = new float[50];
+        ZArray = new float[50];
+        //Счетчик измерений
+        count = 0;
+        medX = 0.0f;
+        medY = 0.0f;
+        medZ = 0.0f;
     }
 
     @Override
@@ -300,6 +319,31 @@ public class MyLocationDemoActivity extends AppCompatActivity
 //        }
     }
 
+    public float arMean(float a, float b){
+        return (a + b) / 2;
+    }
+
+    public void getGVector(float x, float y, float z){
+        if(count != 49) {
+            XArray[count] = x;
+            YArray[count] = y;
+            ZArray[count] = z;
+            count++;
+        }
+        else {
+            //Записываем значение медианы
+            medX = arMean(XArray[25], XArray[26]);
+            medY = arMean(YArray[25], YArray[26]);
+            medZ = arMean(ZArray[25], ZArray[26]);
+            //Обнуляем массив и счетчик
+            XArray = new float[50];
+            YArray = new float[50];
+            ZArray = new float[50];
+            count = 0;
+        }
+    }
+
+
     @Override
     public void onSensorChanged(SensorEvent event) {
 
@@ -313,16 +357,13 @@ public class MyLocationDemoActivity extends AppCompatActivity
             if ((currentTime - lastUpdate) > 100){
                 long difftime = (currentTime - lastUpdate);
                 lastUpdate = currentTime;
-                if (x == 0){
-                    Log.d("acceldbg", "x = 0");
-                }
-                if (y == 0){
-                    Log.d("acceldbg", "y = 0");
-                }
-                if (z == 0){
-                    Log.d("acceldbg", "z = 0");
-                }
+                //Вычисляем вектор гравитации
+                getGVector(x, y, z);
 
+                if(medX != 0.0f && medY != 0.0f && medZ != 0.0f){
+                    //Вычисляем проекцию вектора
+                    
+                }
 
                 float speed = Math.abs(y - last_y)/ difftime * 10000;
                 if (speed > SHAKE_THRESHOLD) {
@@ -332,6 +373,7 @@ public class MyLocationDemoActivity extends AppCompatActivity
                     Toast.makeText(this, "Опять яма!", Toast.LENGTH_SHORT).show();
                     writeToFile(locationbuffer, last_speed, "Sensor");
                 }
+
                 last_x = x;
                 last_y = y;
                 last_z = z;
