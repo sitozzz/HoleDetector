@@ -329,6 +329,7 @@ public class MyLocationDemoActivity extends AppCompatActivity
             YArray[count] = y;
             ZArray[count] = z;
             count++;
+            Log.d("accel", "Count = " + String.valueOf(count));
         }
         else {
             //Записываем значение медианы
@@ -342,7 +343,12 @@ public class MyLocationDemoActivity extends AppCompatActivity
             count = 0;
         }
     }
-
+    public float scalarMultiply(float x1, float y1, float z1, float x2, float y2, float z2){
+        return x1*x2 + y1*y2 + z1*z2;
+    }
+    public float vectorLength(float x, float y, float z){
+        return (float) Math.sqrt(x*x + y*y + z*z);
+    }
 
     @Override
     public void onSensorChanged(SensorEvent event) {
@@ -362,14 +368,15 @@ public class MyLocationDemoActivity extends AppCompatActivity
 
                 if(medX != 0.0f && medY != 0.0f && medZ != 0.0f){
                     //Вычисляем проекцию вектора
-                    
+                    float accel = scalarMultiply(last_x, last_y, last_z, medX, medY, medZ) / vectorLength(medX, medY, medZ);
+                    Log.d("accel", "accel = " + String.valueOf(accel));
                 }
 
                 float speed = Math.abs(y - last_y)/ difftime * 10000;
                 if (speed > SHAKE_THRESHOLD) {
                     last_speed = speed;
-                    Log.d("acceldbg", "Speed = " + String.valueOf(speed));
-                    Log.d("acceldbg", "Z = " + String.valueOf(z));
+                    //Log.d("acceldbg", "Speed = " + String.valueOf(speed));
+                    //Log.d("acceldbg", "Z = " + String.valueOf(z));
                     Toast.makeText(this, "Опять яма!", Toast.LENGTH_SHORT).show();
                     writeToFile(locationbuffer, last_speed, "Sensor");
                 }
@@ -377,9 +384,9 @@ public class MyLocationDemoActivity extends AppCompatActivity
                 last_x = x;
                 last_y = y;
                 last_z = z;
-                Log.d("acceldbg", "accelerometr x = "+String.valueOf(x));
-                Log.d("acceldbg", "accelerometr y = "+String.valueOf(y));
-                Log.d("acceldbg", "accelerometr z = "+String.valueOf(z));
+                //Log.d("acceldbg", "accelerometr x = "+String.valueOf(x));
+                //Log.d("acceldbg", "accelerometr y = "+String.valueOf(y));
+                //Log.d("acceldbg", "accelerometr z = "+String.valueOf(z));
             }
         }
 
