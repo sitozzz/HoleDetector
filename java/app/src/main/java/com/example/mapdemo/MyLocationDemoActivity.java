@@ -54,6 +54,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.List;
 import java.util.Vector;
 
 /**
@@ -85,15 +86,17 @@ public class MyLocationDemoActivity extends AppCompatActivity
     private static final int SHAKE_THRESHOLD = 600;
     private SensorManager senSensorManager;
     private Sensor senAccelerometer;
-    //Вычисление медианы
-    public float[] XArray;
-    public float[] YArray;
-    public float[] ZArray;
+    //Очередь
+    public List<Float> XArray;
+    public List<Float> YArray;
+    public List<Float> ZArray;
+    public int count;
     //Вычисленные значения вектора гравитации
     public float medX;
     public float medY;
     public float medZ;
-    public int count;
+    //Ускорение вертикальной оси
+    public float gAccel;
     public MyLocation.LocationResult locationResult = new MyLocation.LocationResult(){
         @Override
         public void gotLocation(Location location){
@@ -116,11 +119,10 @@ public class MyLocationDemoActivity extends AppCompatActivity
 
         MyLocation myLocation = new MyLocation(getApplicationContext());
         myLocation.getLocation(this, locationResult);
-        //writeToFile();
-        //Количество измерений за 5 секунд
-        XArray = new float[50];
-        YArray = new float[50];
-        ZArray = new float[50];
+
+        XArray = new ArrayList<>();
+        YArray = new ArrayList<>();
+        ZArray = new ArrayList<>();
         //Счетчик измерений
         count = 0;
         medX = 0.0f;
@@ -149,7 +151,7 @@ public class MyLocationDemoActivity extends AppCompatActivity
             LatLng pos = new LatLng(locationbuffer.getLatitude(), locationbuffer.getLongitude());
             mMap.addMarker(new MarkerOptions().position(pos).title("Яма"));
             mMap.moveCamera(CameraUpdateFactory.newLatLng(pos));
-            writeToFile(locationbuffer, last_speed, "Man");
+            writeToFile(locationbuffer, gAccel, "Human");
             Toast.makeText(this, "Яма записана пользователем", Toast.LENGTH_SHORT).show();
             Log.d("loc", "Write buffer to file");
         }
@@ -318,31 +320,46 @@ public class MyLocationDemoActivity extends AppCompatActivity
 //            Toast.makeText(this, "Location is null", Toast.LENGTH_LONG).show();
 //        }
     }
-
+    //Среднее арифметическое
     public float arMean(float a, float b){
         return (a + b) / 2;
     }
 
+    public void firstOut(List<Float> list){
+        float buffer = 0.0f;
+        for (i = 0; i<49; i++){
+            list.add(i, list.get(i + 1));
+        }
+    }
+
+    //Запись вектора горизонтального ускорения
     public void getGVector(float x, float y, float z){
         if(count != 49) {
-            XArray[count] = x;
-            YArray[count] = y;
-            ZArray[count] = z;
+            XArray.add(count, x);
+            //XArray[count] = x;
+            YArray.add(count, y);
+            ZArray.add(count, x);
             count++;
+
             Log.d("accel", "Count = " + String.valueOf(count));
         }
         else {
             //Записываем значение медианы
-            medX = arMean(XArray[25], XArray[26]);
-            medY = arMean(YArray[25], YArray[26]);
-            medZ = arMean(ZArray[25], ZArray[26]);
-            //Обнуляем массив и счетчик
-            XArray = new float[50];
-            YArray = new float[50];
-            ZArray = new float[50];
-            count = 0;
+            medX = arMean(XArray.get(25), XArray.get(26));
+            medY = arMean(YArray.get(25), YArray.get(26));
+            medZ = arMean(ZArray.get(25), ZArray.get(26));
+            //Удаляем последний элемент массива и сдвигаем на 1 позицию
+            firstOut(XArray);
+            firstOut(YArray);
+            firstOut(ZArray);
+            //Добавляем новый элемент в конец
+            XArray.add(49, x);
+            YArray.add(49, y);
+            ZArray.add(49, z);
+
         }
     }
+
     public float scalarMultiply(float x1, float y1, float z1, float x2, float y2, float z2){
         return x1*x2 + y1*y2 + z1*z2;
     }
@@ -368,8 +385,9 @@ public class MyLocationDemoActivity extends AppCompatActivity
 
                 if(medX != 0.0f && medY != 0.0f && medZ != 0.0f){
                     //Вычисляем проекцию вектора
-                    float accel = scalarMultiply(last_x, last_y, last_z, medX, medY, medZ) / vectorLength(medX, medY, medZ);
-                    Log.d("accel", "accel = " + String.valueOf(accel));
+                    gAccel = scalarMultiply(last_x, last_y, last_z, medX, medY, medZ) / vectorLength(medX, medY, medZ);
+                    writeToFile(locationbuffer, gAccel,"NaN");
+                    //Log.d("accel", "accel = " + String.valueOf(accel));
                 }
 
                 float speed = Math.abs(y - last_y)/ difftime * 10000;
@@ -378,7 +396,7 @@ public class MyLocationDemoActivity extends AppCompatActivity
                     //Log.d("acceldbg", "Speed = " + String.valueOf(speed));
                     //Log.d("acceldbg", "Z = " + String.valueOf(z));
                     Toast.makeText(this, "Опять яма!", Toast.LENGTH_SHORT).show();
-                    writeToFile(locationbuffer, last_speed, "Sensor");
+                    //writeToFile(locationbuffer, last_speed, "Sensor");
                 }
 
                 last_x = x;
@@ -389,8 +407,6 @@ public class MyLocationDemoActivity extends AppCompatActivity
                 //Log.d("acceldbg", "accelerometr z = "+String.valueOf(z));
             }
         }
-
-
     }
 
     @Override
