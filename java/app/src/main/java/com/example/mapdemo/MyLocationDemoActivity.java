@@ -327,8 +327,9 @@ public class MyLocationDemoActivity extends AppCompatActivity
 
     public void firstOut(List<Float> list){
         float buffer = 0.0f;
-        for (i = 0; i<49; i++){
+        for (int i = 0; i<49; i++){
             list.add(i, list.get(i + 1));
+
         }
     }
 
@@ -387,7 +388,7 @@ public class MyLocationDemoActivity extends AppCompatActivity
                     //Вычисляем проекцию вектора
                     gAccel = scalarMultiply(last_x, last_y, last_z, medX, medY, medZ) / vectorLength(medX, medY, medZ);
                     writeToFile(locationbuffer, gAccel,"NaN");
-                    //Log.d("accel", "accel = " + String.valueOf(accel));
+                    Log.d("gaccel", "gaccel = " + String.valueOf(gAccel));
                 }
 
                 float speed = Math.abs(y - last_y)/ difftime * 10000;
