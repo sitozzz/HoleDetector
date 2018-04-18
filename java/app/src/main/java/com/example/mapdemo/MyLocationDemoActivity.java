@@ -43,6 +43,8 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.View;
+import android.widget.Button;
 import android.widget.Toast;
 
 import java.io.BufferedWriter;
@@ -56,13 +58,6 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Vector;
-
-/**
- * This demo shows how GMS Location can be used to check for changes to the users location.  The
- * "My Location" button uses GMS Location to set the blue dot representing the users location.
- * Permission for {@link android.Manifest.permission#ACCESS_FINE_LOCATION} is requested at run
- * time. If the permission has not been granted, the Activity is finished with an error message.
- */
 
 public class MyLocationDemoActivity extends AppCompatActivity
         implements
@@ -97,6 +92,9 @@ public class MyLocationDemoActivity extends AppCompatActivity
     public float medZ;
     //Ускорение вертикальной оси
     public float gAccel;
+    public boolean logging = false;
+    public int sessionNumber = 0;
+
     public MyLocation.LocationResult locationResult = new MyLocation.LocationResult(){
         @Override
         public void gotLocation(Location location){
@@ -119,7 +117,22 @@ public class MyLocationDemoActivity extends AppCompatActivity
 
         MyLocation myLocation = new MyLocation(getApplicationContext());
         myLocation.getLocation(this, locationResult);
+        final Button startLog = (Button) findViewById(R.id.startWrite);
+        startLog.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (logging == false){
+                    sessionNumber += 1;
+                    logging = true;
+                    startLog.setText("Logging");
 
+                }
+                else {
+                    logging = false;
+                    startLog.setText("Stop logging");
+                }
+            }
+        });
         XArray = new ArrayList<>();
         YArray = new ArrayList<>();
         ZArray = new ArrayList<>();
@@ -146,15 +159,17 @@ public class MyLocationDemoActivity extends AppCompatActivity
     @Override
     public void onBackPressed() {
         //super.onBackPressed();
-        if(locationbuffer != null && last_speed != 0){
+        //if(locationbuffer != null && last_speed != 0){
 
             LatLng pos = new LatLng(locationbuffer.getLatitude(), locationbuffer.getLongitude());
             mMap.addMarker(new MarkerOptions().position(pos).title("Яма"));
             mMap.moveCamera(CameraUpdateFactory.newLatLng(pos));
-            writeToFile(locationbuffer, gAccel, "Human");
-            Toast.makeText(this, "Яма записана пользователем", Toast.LENGTH_SHORT).show();
-            Log.d("loc", "Write buffer to file");
-        }
+            if(logging == true) {
+                writeToFile(locationbuffer, gAccel, "Human");
+                Toast.makeText(this, "Яма записана пользователем", Toast.LENGTH_SHORT).show();
+                Log.d("loc", "Write buffer to file");
+            }
+        //}
 
     }
 
@@ -219,10 +234,14 @@ public class MyLocationDemoActivity extends AppCompatActivity
             // пишем данные
             //Дата долгота широта ускорение по вертикальной оси
             if(author == "Sensor"){
-                bw.write(String.valueOf(Calendar.getInstance().getTime()) + " By" + author + " " + longt + " " + latt + " " + String.valueOf(power) + " ,");
+                //old time
+                //Calendar.getInstance().getTime()
+                bw.write( sessionNumber + " " + String.valueOf(System.currentTimeMillis()) + " By" + author + " " + longt + " " + latt + " " + String.valueOf(power) + ",");
             }
             else {
-                bw.write(String.valueOf(Calendar.getInstance().getTime()) + " By" + author + " " + longt + " " + latt + " " + String.valueOf(power) + " ,");
+                //old time
+                //Calendar.getInstance().getTime()
+                bw.write(sessionNumber + " " + String.valueOf(System.currentTimeMillis()) + " By" + author + " " + longt + " " + latt + " " + String.valueOf(power) + ",");
             }
             // закрываем поток
             bw.close();
@@ -378,7 +397,7 @@ public class MyLocationDemoActivity extends AppCompatActivity
             float y = event.values[1];
             float z = event.values[2];
             long currentTime = System.currentTimeMillis();
-            if ((currentTime - lastUpdate) > 100){
+            if ((currentTime - lastUpdate) > 50){
                 long difftime = (currentTime - lastUpdate);
                 lastUpdate = currentTime;
                 //Вычисляем вектор гравитации
@@ -387,10 +406,15 @@ public class MyLocationDemoActivity extends AppCompatActivity
                 if(medX != 0.0f && medY != 0.0f && medZ != 0.0f){
                     //Вычисляем проекцию вектора
                     gAccel = scalarMultiply(last_x, last_y, last_z, medX, medY, medZ) / vectorLength(medX, medY, medZ);
-                    writeToFile(locationbuffer, gAccel,"NaN");
-                    Log.d("gaccel", "gaccel = " + String.valueOf(gAccel));
+
+                    //Log.d("loctime", String.valueOf(System.currentTimeMillis()));
+                    if (logging == true) {
+                        writeToFile(locationbuffer, gAccel, "NaN");
+                        Log.d("gaccel", "gaccel = " + String.valueOf(gAccel));
+                    }
                 }
 
+                //Don't use anymore
                 float speed = Math.abs(y - last_y)/ difftime * 10000;
                 if (speed > SHAKE_THRESHOLD) {
                     last_speed = speed;
