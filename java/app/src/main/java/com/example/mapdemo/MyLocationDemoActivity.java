@@ -63,7 +63,7 @@ public class MyLocationDemoActivity extends AppCompatActivity
         implements
         OnMyLocationButtonClickListener,
         LocationSource.OnLocationChangedListener,
-        SensorEventListener,
+        //SensorEventListener,
         OnMyLocationClickListener,
         OnMapReadyCallback,
         ActivityCompat.OnRequestPermissionsResultCallback {
@@ -73,7 +73,7 @@ public class MyLocationDemoActivity extends AppCompatActivity
 
 
     private boolean mPermissionDenied = false;
-    public Location locationbuffer;
+    public static Location locationbuffer;
     private GoogleMap mMap;
     private float last_speed = 0;
     private long lastUpdate = 0;
@@ -93,69 +93,103 @@ public class MyLocationDemoActivity extends AppCompatActivity
     //Ускорение вертикальной оси
     public float gAccel;
     public boolean logging = false;
-    public int sessionNumber = 0;
+    public static int sessionNumber = 0;
+    private FileSaver saver;
+
 
     public MyLocation.LocationResult locationResult = new MyLocation.LocationResult(){
         @Override
         public void gotLocation(Location location){
-            Log.d("loc", "latt = " + String.valueOf(location.getLatitude()) + ", long = " +String.valueOf(location.getLongitude()));
             locationbuffer = location;
-            //Toast.makeText(, "Got the location", Toast.LENGTH_LONG).show();
         }
     };
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.my_location_demo);
         //Аккселерометр
-        senSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-        senAccelerometer = senSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        senSensorManager.registerListener(this, senAccelerometer, senSensorManager.SENSOR_DELAY_NORMAL);
+        //senSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        //senAccelerometer = senSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        //senSensorManager.registerListener(this, senAccelerometer, senSensorManager.SENSOR_DELAY_NORMAL);
         SupportMapFragment mapFragment =
                 (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
         MyLocation myLocation = new MyLocation(getApplicationContext());
         myLocation.getLocation(this, locationResult);
+        //Ask permission to write stornage
+        getPermission();
         final Button startLog = (Button) findViewById(R.id.startWrite);
         startLog.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (logging == false){
-                    sessionNumber += 1;
-                    logging = true;
-                    startLog.setText("Logging");
 
-                }
-                else {
-                    logging = false;
+                if (saver.isRecord()){
+                    saver.stopRecord();
+                    sessionNumber += 1;
                     startLog.setText("Stop logging");
+                } else {
+                    saver.startRecord();
+                    startLog.setText("Logging");
                 }
+
+
+                //To delete
+//                if (logging == false){
+//                    sessionNumber += 1;
+//                    logging = true;
+//                    startLog.setText("Logging");
+//
+//                }
+//                else {
+//                    logging = false;
+//                    startLog.setText("Stop logging");
+//                }
             }
         });
-        XArray = new ArrayList<>();
-        YArray = new ArrayList<>();
-        ZArray = new ArrayList<>();
-        //Счетчик измерений
-        count = 0;
-        medX = 0.0f;
-        medY = 0.0f;
-        medZ = 0.0f;
+//        XArray = new ArrayList<>();
+//        YArray = new ArrayList<>();
+//        ZArray = new ArrayList<>();
+//        //Счетчик измерений
+//        count = 0;
+//        medX = 0.0f;
+//        medY = 0.0f;
+//        medZ = 0.0f;
+        saver = new FileSaver(getApplicationContext());
     }
 
     @Override
     protected void onPause() {
 
         super.onPause();
-        senSensorManager.unregisterListener(this);
+        //senSensorManager.unregisterListener(this);
     }
 
     @Override
     protected void onResume(){
         super.onResume();
-        senSensorManager.registerListener(this, senAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+        //senSensorManager.registerListener(this, senAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
     }
+    public void getPermission(){
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            int canRead = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE);
+            int canWrite = ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE);
 
+            if (canRead != PackageManager.PERMISSION_GRANTED || canWrite != PackageManager.PERMISSION_GRANTED) {
+
+                //Нужно ли нам показывать объяснения , зачем нам нужно это разрешение
+                if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+                    //показываем объяснение
+                } else {
+                    //просим разрешение
+                    requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                            Manifest.permission.READ_EXTERNAL_STORAGE}, 5000);
+                }
+            } else {
+                //ваш код
+            }
+        }
+    }
     @Override
     public void onBackPressed() {
         //super.onBackPressed();
@@ -164,8 +198,8 @@ public class MyLocationDemoActivity extends AppCompatActivity
             LatLng pos = new LatLng(locationbuffer.getLatitude(), locationbuffer.getLongitude());
             mMap.addMarker(new MarkerOptions().position(pos).title("Яма"));
             mMap.moveCamera(CameraUpdateFactory.newLatLng(pos));
-            if(logging == true) {
-                writeToFile(locationbuffer, gAccel, "Human");
+            if(saver.isRecord()) {
+                saver.writeToFile("Human");
                 Toast.makeText(this, "Яма записана пользователем", Toast.LENGTH_SHORT).show();
                 Log.d("loc", "Write buffer to file");
             }
@@ -189,78 +223,75 @@ public class MyLocationDemoActivity extends AppCompatActivity
 //            e.printStackTrace();
 //        }
 //    }
-    public void writeToFile(Location location, float power, String author){
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            int canRead = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE);
-            int canWrite = ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE);
-
-            if (canRead != PackageManager.PERMISSION_GRANTED || canWrite != PackageManager.PERMISSION_GRANTED) {
-
-                //Нужно ли нам показывать объяснения , зачем нам нужно это разрешение
-                if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-                    //показываем объяснение
-                } else {
-                    //просим разрешение
-                    requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                            Manifest.permission.READ_EXTERNAL_STORAGE}, 5000);
-                }
-            } else {
-                //ваш код
-            }
-        }
-
-
-        String longt = String.valueOf(location.getLongitude());
-        String latt = String.valueOf(location.getLatitude());
-
-        if(!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)){
-            Log.d("file", "SD-карта не доступна: " + Environment.getExternalStorageState());
-            return;
-        }
-        // получаем путь к SD
-        File sdPath = Environment.getExternalStorageDirectory();
-        // добавляем свой каталог к пути
-        sdPath = new File(sdPath.getAbsolutePath() + "/" + "log/");
-        Log.d("path", sdPath.getAbsolutePath());
-        // создаем каталог
-        sdPath.mkdirs();
-        // формируем объект File, который содержит путь к файлу
-        //File sdFile = new File("/mnt/sdcard/", "fileSD.txt");
-        File sdFile = new File(sdPath, "log.txt");
-        try {
-            // открываем поток для записи
-            BufferedWriter bw = new BufferedWriter(new FileWriter(sdFile, true));
-            // пишем данные
-            //Дата долгота широта ускорение по вертикальной оси
-            if(author == "Sensor"){
-                //old time
-                //Calendar.getInstance().getTime()
-                bw.write( sessionNumber + " " + String.valueOf(System.currentTimeMillis()) + " By" + author + " " + longt + " " + latt + " " + String.valueOf(power) + ",");
-            }
-            else {
-                //old time
-                //Calendar.getInstance().getTime()
-                bw.write(sessionNumber + " " + String.valueOf(System.currentTimeMillis()) + " By" + author + " " + longt + " " + latt + " " + String.valueOf(power) + ",");
-            }
-            // закрываем поток
-            bw.close();
-            Log.d("file", "Файл записан на SD: " + sdFile.getAbsolutePath());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-    }
+//    public void writeToFile(Location location, float power, String author){
+//
+//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+//            int canRead = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE);
+//            int canWrite = ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+//
+//            if (canRead != PackageManager.PERMISSION_GRANTED || canWrite != PackageManager.PERMISSION_GRANTED) {
+//
+//                //Нужно ли нам показывать объяснения , зачем нам нужно это разрешение
+//                if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+//                    //показываем объяснение
+//                } else {
+//                    //просим разрешение
+//                    requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE,
+//                            Manifest.permission.READ_EXTERNAL_STORAGE}, 5000);
+//                }
+//            } else {
+//                //ваш код
+//            }
+//        }
+//
+//
+//        String longt = String.valueOf(location.getLongitude());
+//        String latt = String.valueOf(location.getLatitude());
+//
+//        if(!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)){
+//            Log.d("file", "SD-карта не доступна: " + Environment.getExternalStorageState());
+//            return;
+//        }
+//        // получаем путь к SD
+//        File sdPath = Environment.getExternalStorageDirectory();
+//        // добавляем свой каталог к пути
+//        sdPath = new File(sdPath.getAbsolutePath() + "/" + "log/");
+//        Log.d("path", sdPath.getAbsolutePath());
+//        // создаем каталог
+//        sdPath.mkdirs();
+//        // формируем объект File, который содержит путь к файлу
+//        //File sdFile = new File("/mnt/sdcard/", "fileSD.txt");
+//        File sdFile = new File(sdPath, "log.txt");
+//        try {
+//            // открываем поток для записи
+//            BufferedWriter bw = new BufferedWriter(new FileWriter(sdFile, true));
+//            // пишем данные
+//            //Дата долгота широта ускорение по вертикальной оси
+//            if(author == "Sensor"){
+//                //old time
+//                //Calendar.getInstance().getTime()
+//                bw.write( sessionNumber + " " + String.valueOf(System.currentTimeMillis()) + " By" + author + " " + longt + " " + latt + " " + String.valueOf(power) + ",");
+//            }
+//            else {
+//                //old time
+//                //Calendar.getInstance().getTime()
+//                bw.write(sessionNumber + " " + String.valueOf(System.currentTimeMillis()) + " By" + author + " " + longt + " " + latt + " " + String.valueOf(power) + ",");
+//            }
+//            // закрываем поток
+//            bw.close();
+//            Log.d("file", "Файл записан на SD: " + sdFile.getAbsolutePath());
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//
+//    }
 
     @Override
     public void onMapReady(GoogleMap map) {
         mMap = map;
-
         mMap.setOnMyLocationButtonClickListener(this);
         mMap.setOnMyLocationClickListener(this);
         enableMyLocation();
-
-
     }
 
     /**
@@ -339,103 +370,103 @@ public class MyLocationDemoActivity extends AppCompatActivity
 //            Toast.makeText(this, "Location is null", Toast.LENGTH_LONG).show();
 //        }
     }
-    //Среднее арифметическое
-    public float arMean(float a, float b){
-        return (a + b) / 2;
-    }
+//    //Среднее арифметическое
+//    public float arMean(float a, float b){
+//        return (a + b) / 2;
+//    }
+//
+//    public void firstOut(List<Float> list){
+//        float buffer = 0.0f;
+//        for (int i = 0; i<49; i++){
+//            list.add(i, list.get(i + 1));
+//
+//        }
+//    }
+//
+//    //Запись вектора горизонтального ускорения
+//    public void getGVector(float x, float y, float z){
+//        if(count != 49) {
+//            XArray.add(count, x);
+//            //XArray[count] = x;
+//            YArray.add(count, y);
+//            ZArray.add(count, x);
+//            count++;
+//
+//            Log.d("accel", "Count = " + String.valueOf(count));
+//        }
+//        else {
+//            //Записываем значение медианы
+//            medX = arMean(XArray.get(25), XArray.get(26));
+//            medY = arMean(YArray.get(25), YArray.get(26));
+//            medZ = arMean(ZArray.get(25), ZArray.get(26));
+//            //Удаляем последний элемент массива и сдвигаем на 1 позицию
+//            firstOut(XArray);
+//            firstOut(YArray);
+//            firstOut(ZArray);
+//            //Добавляем новый элемент в конец
+//            XArray.add(49, x);
+//            YArray.add(49, y);
+//            ZArray.add(49, z);
+//
+//        }
+//    }
+//
+//    public float scalarMultiply(float x1, float y1, float z1, float x2, float y2, float z2){
+//        return x1*x2 + y1*y2 + z1*z2;
+//    }
+//    public float vectorLength(float x, float y, float z){
+//        return (float) Math.sqrt(x*x + y*y + z*z);
+//    }
 
-    public void firstOut(List<Float> list){
-        float buffer = 0.0f;
-        for (int i = 0; i<49; i++){
-            list.add(i, list.get(i + 1));
+//    @Override
+//    public void onSensorChanged(SensorEvent event) {
+//
+//        Sensor mySensor = event.sensor;
+//
+//        if (mySensor.getType() == Sensor.TYPE_ACCELEROMETER){
+//            float x = event.values[0];
+//            float y = event.values[1];
+//            float z = event.values[2];
+//            long currentTime = System.currentTimeMillis();
+//            if ((currentTime - lastUpdate) > 50){
+//                long difftime = (currentTime - lastUpdate);
+//                lastUpdate = currentTime;
+//                //Вычисляем вектор гравитации
+//                getGVector(x, y, z);
+//
+//                if(medX != 0.0f && medY != 0.0f && medZ != 0.0f){
+//                    //Вычисляем проекцию вектора
+//                    gAccel = scalarMultiply(last_x, last_y, last_z, medX, medY, medZ) / vectorLength(medX, medY, medZ);
+//
+//                    //Log.d("loctime", String.valueOf(System.currentTimeMillis()));
+//                    if (logging == true) {
+//                        writeToFile(locationbuffer, gAccel, "NaN");
+//                        Log.d("gaccel", "gaccel = " + String.valueOf(gAccel));
+//                    }
+//                }
+//
+//                //Don't use anymore
+//                float speed = Math.abs(y - last_y)/ difftime * 10000;
+//                if (speed > SHAKE_THRESHOLD) {
+//                    last_speed = speed;
+//                    //Log.d("acceldbg", "Speed = " + String.valueOf(speed));
+//                    //Log.d("acceldbg", "Z = " + String.valueOf(z));
+//                    Toast.makeText(this, "Опять яма!", Toast.LENGTH_SHORT).show();
+//                    //writeToFile(locationbuffer, last_speed, "Sensor");
+//                }
+//
+//                last_x = x;
+//                last_y = y;
+//                last_z = z;
+//                //Log.d("acceldbg", "accelerometr x = "+String.valueOf(x));
+//                //Log.d("acceldbg", "accelerometr y = "+String.valueOf(y));
+//                //Log.d("acceldbg", "accelerometr z = "+String.valueOf(z));
+//            }
+//        }
+//    }
 
-        }
-    }
-
-    //Запись вектора горизонтального ускорения
-    public void getGVector(float x, float y, float z){
-        if(count != 49) {
-            XArray.add(count, x);
-            //XArray[count] = x;
-            YArray.add(count, y);
-            ZArray.add(count, x);
-            count++;
-
-            Log.d("accel", "Count = " + String.valueOf(count));
-        }
-        else {
-            //Записываем значение медианы
-            medX = arMean(XArray.get(25), XArray.get(26));
-            medY = arMean(YArray.get(25), YArray.get(26));
-            medZ = arMean(ZArray.get(25), ZArray.get(26));
-            //Удаляем последний элемент массива и сдвигаем на 1 позицию
-            firstOut(XArray);
-            firstOut(YArray);
-            firstOut(ZArray);
-            //Добавляем новый элемент в конец
-            XArray.add(49, x);
-            YArray.add(49, y);
-            ZArray.add(49, z);
-
-        }
-    }
-
-    public float scalarMultiply(float x1, float y1, float z1, float x2, float y2, float z2){
-        return x1*x2 + y1*y2 + z1*z2;
-    }
-    public float vectorLength(float x, float y, float z){
-        return (float) Math.sqrt(x*x + y*y + z*z);
-    }
-
-    @Override
-    public void onSensorChanged(SensorEvent event) {
-
-        Sensor mySensor = event.sensor;
-
-        if (mySensor.getType() == Sensor.TYPE_ACCELEROMETER){
-            float x = event.values[0];
-            float y = event.values[1];
-            float z = event.values[2];
-            long currentTime = System.currentTimeMillis();
-            if ((currentTime - lastUpdate) > 50){
-                long difftime = (currentTime - lastUpdate);
-                lastUpdate = currentTime;
-                //Вычисляем вектор гравитации
-                getGVector(x, y, z);
-
-                if(medX != 0.0f && medY != 0.0f && medZ != 0.0f){
-                    //Вычисляем проекцию вектора
-                    gAccel = scalarMultiply(last_x, last_y, last_z, medX, medY, medZ) / vectorLength(medX, medY, medZ);
-
-                    //Log.d("loctime", String.valueOf(System.currentTimeMillis()));
-                    if (logging == true) {
-                        writeToFile(locationbuffer, gAccel, "NaN");
-                        Log.d("gaccel", "gaccel = " + String.valueOf(gAccel));
-                    }
-                }
-
-                //Don't use anymore
-                float speed = Math.abs(y - last_y)/ difftime * 10000;
-                if (speed > SHAKE_THRESHOLD) {
-                    last_speed = speed;
-                    //Log.d("acceldbg", "Speed = " + String.valueOf(speed));
-                    //Log.d("acceldbg", "Z = " + String.valueOf(z));
-                    Toast.makeText(this, "Опять яма!", Toast.LENGTH_SHORT).show();
-                    //writeToFile(locationbuffer, last_speed, "Sensor");
-                }
-
-                last_x = x;
-                last_y = y;
-                last_z = z;
-                //Log.d("acceldbg", "accelerometr x = "+String.valueOf(x));
-                //Log.d("acceldbg", "accelerometr y = "+String.valueOf(y));
-                //Log.d("acceldbg", "accelerometr z = "+String.valueOf(z));
-            }
-        }
-    }
-
-    @Override
-    public void onAccuracyChanged(Sensor sensor, int accuracy) {
-
-    }
+//    @Override
+//    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+//
+//    }
 }
