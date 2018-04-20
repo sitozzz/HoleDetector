@@ -21,6 +21,8 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -43,6 +45,7 @@ public class FileSaver implements SensorEventListener, Runnable {
     private Context appContext;
     private float last_x, last_y, last_z;
     private long lastUpdate = 0;
+    private static final Object mutex = new Object();
 
     public FileSaver(Context context) {
         appContext = context;
@@ -64,10 +67,18 @@ public class FileSaver implements SensorEventListener, Runnable {
         thread.start();
     }
 
-    public void writeToFile(String author){
+    public synchronized void addToBuffer(String author) {
+        synchronized (mutex) {
+            String longt = String.valueOf(MyLocationDemoActivity.locationbuffer.getLongitude());
+            String latt = String.valueOf(MyLocationDemoActivity.locationbuffer.getLatitude());
+            buffer.add(MyLocationDemoActivity.sessionNumber + " " + String.valueOf(System.currentTimeMillis()) + " By" + author + " " + longt + " " + latt + " " + String.valueOf(gAccel) + ",");
+        }
+    }
 
-        String longt = String.valueOf(MyLocationDemoActivity.locationbuffer.getLongitude());
-        String latt = String.valueOf(MyLocationDemoActivity.locationbuffer.getLatitude());
+    public void writeToFile(List<String> buffer){
+        Log.d("THREAD", " write file " + Thread.currentThread().getName());
+        //String longt = String.valueOf(MyLocationDemoActivity.locationbuffer.getLongitude());
+        //String latt = String.valueOf(MyLocationDemoActivity.locationbuffer.getLatitude());
 
         if(!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)){
             Log.d("file", "SD-карта не доступна: " + Environment.getExternalStorageState());
@@ -83,10 +94,14 @@ public class FileSaver implements SensorEventListener, Runnable {
         // формируем объект File, который содержит путь к файлу
         //File sdFile = new File("/mnt/sdcard/", "fileSD.txt");
         File sdFile = new File(sdPath, "log.txt");
-        if(buffer.size()<100){
-            buffer.add(MyLocationDemoActivity.sessionNumber + " " + String.valueOf(System.currentTimeMillis()) + " By" + author + " " + longt + " " + latt + " " + String.valueOf(gAccel) + ",");
-        }
-        else {
+        // add
+        // if > 100
+            // write
+            // clean
+        //if(buffer.size()<100){
+          //  buffer.add(MyLocationDemoActivity.sessionNumber + " " + String.valueOf(System.currentTimeMillis()) + " By" + author + " " + longt + " " + latt + " " + String.valueOf(gAccel) + ",");
+        //}
+        //else {
             try {
                 // открываем поток для записи
                 BufferedWriter bw = new BufferedWriter(new FileWriter(sdFile, true));
@@ -107,18 +122,18 @@ public class FileSaver implements SensorEventListener, Runnable {
                 // закрываем поток
                 bw.close();
                 Log.d("file", "Файл записан на SD: " + sdFile.getAbsolutePath());
-                buffer = new ArrayList<>();
+                //buffer = new ArrayList<>();
             } catch (IOException e) {
                 e.printStackTrace();
             }
-        }
+       // }
 
     }
     //Среднее арифметическое
     public float arMean(float a, float b){
         return (a + b) / 2;
     }
-
+    //Очередь
     public void firstOut(List<Float> list){
         float buffer = 0.0f;
         for (int i = 0; i<49; i++){
@@ -158,6 +173,7 @@ public class FileSaver implements SensorEventListener, Runnable {
     public float scalarMultiply(float x1, float y1, float z1, float x2, float y2, float z2){
         return x1*x2 + y1*y2 + z1*z2;
     }
+
     public float vectorLength(float x, float y, float z){
         return (float) Math.sqrt(x*x + y*y + z*z);
     }
@@ -184,6 +200,9 @@ public class FileSaver implements SensorEventListener, Runnable {
 
         // if mediana buffer > 1000
             // write to file
+
+        Log.d("THREAD", "sensor changed " + Thread.currentThread().getName());
+
         Sensor mySensor = event.sensor;
         if (mySensor.getType() == Sensor.TYPE_ACCELEROMETER){
             float x = event.values[0];
@@ -202,7 +221,10 @@ public class FileSaver implements SensorEventListener, Runnable {
 
                     //Log.d("loctime", String.valueOf(System.currentTimeMillis()));
                     if (isRecord()) {
-                        writeToFile( "NaN");
+
+                        //writeToFile( "NaN");
+                        addToBuffer("Nan");
+                        Log.d("THREAD", "write thread ------->" + Thread.currentThread().getName() + "size = " + buffer.size());
                         Log.d("gaccel", "gaccel = " + String.valueOf(gAccel));
                     }
                 }
@@ -229,6 +251,20 @@ public class FileSaver implements SensorEventListener, Runnable {
 
     }
 
+    public synchronized List<String> getBuffer(){
+        synchronized (mutex) {
+            if (buffer.size() < 100) {
+                return null;
+            }
+            List<String> new_buff = new ArrayList<>(buffer.size()+1);
+            new_buff.addAll(buffer);
+            //Collections.copy(new_buff, buffer);
+            buffer.clear();
+            //System.gc();
+            return new_buff;
+        }
+    }
+
     @Override
     public synchronized void onAccuracyChanged(Sensor sensor, int accuracy) {
 
@@ -238,6 +274,12 @@ public class FileSaver implements SensorEventListener, Runnable {
     public void run() {
         while (true){
            sleep(10);
+           List<String> buff = getBuffer();
+           if (buff != null){
+               Log.d("THREAD", "write thread " + Thread.currentThread().getName());
+               writeToFile(buff);
+               buff.clear();
+           }
         }
     }
 

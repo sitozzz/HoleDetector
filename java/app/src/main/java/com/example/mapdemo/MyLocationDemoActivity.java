@@ -192,19 +192,15 @@ public class MyLocationDemoActivity extends AppCompatActivity
     }
     @Override
     public void onBackPressed() {
-        //super.onBackPressed();
-        //if(locationbuffer != null && last_speed != 0){
-
-            LatLng pos = new LatLng(locationbuffer.getLatitude(), locationbuffer.getLongitude());
-            mMap.addMarker(new MarkerOptions().position(pos).title("Яма"));
-            mMap.moveCamera(CameraUpdateFactory.newLatLng(pos));
-            if(saver.isRecord()) {
-                saver.writeToFile("Human");
-                Toast.makeText(this, "Яма записана пользователем", Toast.LENGTH_SHORT).show();
-                Log.d("loc", "Write buffer to file");
-            }
-        //}
-
+        LatLng pos = new LatLng(locationbuffer.getLatitude(), locationbuffer.getLongitude());
+        mMap.addMarker(new MarkerOptions().position(pos).title("Яма"));
+        mMap.moveCamera(CameraUpdateFactory.newLatLng(pos));
+        if(saver.isRecord()) {
+            saver.addToBuffer("Human");
+            //saver.writeToFile("Human");
+            Toast.makeText(this, "Яма записана пользователем", Toast.LENGTH_SHORT).show();
+            Log.d("loc", "Write buffer to file");
+        }
     }
 
 //    public void writeFile() {
