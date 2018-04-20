@@ -75,7 +75,7 @@ public final class MainActivity extends AppCompatActivity
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.main);
+        //setContentView(R.layout.main);
         startActivity(new Intent(this, MyLocationDemoActivity.class));
         //startActivity(new Intent(this, MarkerDemoActivity.class));
         //ListView list = (ListView) findViewById(R.id.list);

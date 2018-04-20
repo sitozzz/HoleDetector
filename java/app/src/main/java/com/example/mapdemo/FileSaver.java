@@ -21,6 +21,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -39,6 +40,10 @@ public class FileSaver implements SensorEventListener, Runnable {
     public float medZ;
     //Ускорение вертикальной оси
     public float gAccel;
+    //Гироскоп
+    public float xRot;
+    public  float yRot;
+    public  float zRot;
     //public int sessionNumber = 0;
     private SensorManager senSensorManager;
     private Sensor senAccelerometer;
@@ -58,6 +63,9 @@ public class FileSaver implements SensorEventListener, Runnable {
         medX = 0.0f;
         medY = 0.0f;
         medZ = 0.0f;
+        xRot = 0.0f;
+        yRot = 0.0f;
+        zRot = 0.0f;
         //Аккселерометр
         senSensorManager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
         senAccelerometer = senSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
@@ -71,7 +79,13 @@ public class FileSaver implements SensorEventListener, Runnable {
         synchronized (mutex) {
             String longt = String.valueOf(MyLocationDemoActivity.locationbuffer.getLongitude());
             String latt = String.valueOf(MyLocationDemoActivity.locationbuffer.getLatitude());
-            buffer.add(MyLocationDemoActivity.sessionNumber + " " + String.valueOf(System.currentTimeMillis()) + " By" + author + " " + longt + " " + latt + " " + String.valueOf(gAccel) + ",");
+            buffer.add(MyLocationDemoActivity.sessionNumber + " "
+                    + String.valueOf(System.currentTimeMillis()) +
+                    " " + author + " " +
+                    longt + " " + latt + " " +
+                    String.valueOf(gAccel) + " " +
+                    last_x + " " + last_y + " " + last_z +
+                    medX + " " + medY + " " + medZ +",");
         }
     }
 
@@ -93,7 +107,7 @@ public class FileSaver implements SensorEventListener, Runnable {
         sdPath.mkdirs();
         // формируем объект File, который содержит путь к файлу
         //File sdFile = new File("/mnt/sdcard/", "fileSD.txt");
-        File sdFile = new File(sdPath, "log.txt");
+        File sdFile = new File(sdPath, "log" + MyLocationDemoActivity.fileName + ".txt");
         // add
         // if > 100
             // write
@@ -204,49 +218,75 @@ public class FileSaver implements SensorEventListener, Runnable {
         Log.d("THREAD", "sensor changed " + Thread.currentThread().getName());
 
         Sensor mySensor = event.sensor;
-        if (mySensor.getType() == Sensor.TYPE_ACCELEROMETER){
-            float x = event.values[0];
-            float y = event.values[1];
-            float z = event.values[2];
-            long currentTime = System.currentTimeMillis();
-            if ((currentTime - lastUpdate) > 50){
-                long difftime = (currentTime - lastUpdate);
-                lastUpdate = currentTime;
-                //Вычисляем вектор гравитации
-                getGVector(x, y, z);
+        //SensorManager sensorManager = (SensorManager) appContext.getSystemService(Context.SENSOR_SERVICE);
+        switch (event.sensor.getType()){
+            case Sensor.TYPE_ACCELEROMETER:
+                float x = event.values[0];
+                float y = event.values[1];
+                float z = event.values[2];
+                long currentTime = System.currentTimeMillis();
+                if ((currentTime - lastUpdate) > 50){
+                    long difftime = (currentTime - lastUpdate);
+                    lastUpdate = currentTime;
+                    //Вычисляем вектор гравитации
+                    getGVector(x, y, z);
 
-                if(medX != 0.0f && medY != 0.0f && medZ != 0.0f){
-                    //Вычисляем проекцию вектора
-                    gAccel = scalarMultiply(last_x, last_y, last_z, medX, medY, medZ) / vectorLength(medX, medY, medZ);
+                    if(medX != 0.0f && medY != 0.0f && medZ != 0.0f){
+                        //Вычисляем проекцию вектора
+                        gAccel = scalarMultiply(last_x, last_y, last_z, medX, medY, medZ) / vectorLength(medX, medY, medZ);
 
-                    //Log.d("loctime", String.valueOf(System.currentTimeMillis()));
-                    if (isRecord()) {
-
-                        //writeToFile( "NaN");
-                        addToBuffer("Nan");
-                        Log.d("THREAD", "write thread ------->" + Thread.currentThread().getName() + "size = " + buffer.size());
-                        Log.d("gaccel", "gaccel = " + String.valueOf(gAccel));
+                        if (isRecord()) {
+                            addToBuffer("Nan");
+                            Log.d("THREAD", "write thread ------->" + Thread.currentThread().getName() + "size = " + buffer.size());
+                            Log.d("gaccel", "gaccel = " + String.valueOf(gAccel));
+                        }
                     }
+                    last_x = x;
+                    last_y = y;
+                    last_z = z;
+                    break;
                 }
+            case Sensor.TYPE_GYROSCOPE:
+                xRot = event.values[0];
+                yRot = event.values[1];
+                zRot = event.values[2];
 
-//                //Don't use anymore
-//                float speed = Math.abs(y - last_y)/ difftime * 10000;
-//                if (speed > SHAKE_THRESHOLD) {
-//                    last_speed = speed;
-//                    //Log.d("acceldbg", "Speed = " + String.valueOf(speed));
-//                    //Log.d("acceldbg", "Z = " + String.valueOf(z));
-//                    Toast.makeText(this, "Опять яма!", Toast.LENGTH_SHORT).show();
-//                    //writeToFile(locationbuffer, last_speed, "Sensor");
-//                }
-
-                last_x = x;
-                last_y = y;
-                last_z = z;
-                //Log.d("acceldbg", "accelerometr x = "+String.valueOf(x));
-                //Log.d("acceldbg", "accelerometr y = "+String.valueOf(y));
-                //Log.d("acceldbg", "accelerometr z = "+String.valueOf(z));
-            }
+                Log.d("rotation", "x = " + String.valueOf(xRot) + "y = " + String.valueOf(yRot) + "z = " + String.valueOf(zRot));
+                break;
         }
+//        if (mySensor.getType() == Sensor.TYPE_ACCELEROMETER){
+//            float x = event.values[0];
+//            float y = event.values[1];
+//            float z = event.values[2];
+//            long currentTime = System.currentTimeMillis();
+//            if ((currentTime - lastUpdate) > 50){
+//                long difftime = (currentTime - lastUpdate);
+//                lastUpdate = currentTime;
+//                //Вычисляем вектор гравитации
+//                getGVector(x, y, z);
+//
+//                if(medX != 0.0f && medY != 0.0f && medZ != 0.0f){
+//                    //Вычисляем проекцию вектора
+//                    gAccel = scalarMultiply(last_x, last_y, last_z, medX, medY, medZ) / vectorLength(medX, medY, medZ);
+//
+//                    if (isRecord()) {
+//                        addToBuffer("Nan");
+//                        Log.d("THREAD", "write thread ------->" + Thread.currentThread().getName() + "size = " + buffer.size());
+//                        Log.d("gaccel", "gaccel = " + String.valueOf(gAccel));
+//                    }
+//                }
+//                last_x = x;
+//                last_y = y;
+//                last_z = z;
+//            }
+//        }
+//        if (mySensor.getType() == Sensor.TYPE_GYROSCOPE) {
+//            xRot = event.values[0];
+//            yRot = event.values[1];
+//            zRot = event.values[2];
+//
+//            Log.d("rotation", "x = " + String.valueOf(xRot) + "y = " + String.valueOf(yRot) + "z = " + String.valueOf(zRot));
+//        }
 
 
     }
